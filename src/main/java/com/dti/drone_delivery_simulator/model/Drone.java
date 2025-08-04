@@ -18,7 +18,7 @@ public class Drone {
     private double maxPayloadKg;
     private double maxRangeKm;
 
-    private DroneState state = DroneState.IDLE;
+    private DroneState status = DroneState.IDLE;
 
     private int positionX = 0;
     private int positionY = 0;
