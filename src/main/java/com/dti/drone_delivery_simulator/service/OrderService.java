@@ -28,9 +28,11 @@ public class OrderService {
             dto.priority(),
             false
         );
-        this.deliveryService.tryAllocateOrder(order);
+    
+        Order savedOrder = this.orderRepository.save(order);
+        this.deliveryService.processOrder(savedOrder);
         
-        return this.orderRepository.save(order);
+        return savedOrder;
     }
 
     public List<Order> findAll(){
