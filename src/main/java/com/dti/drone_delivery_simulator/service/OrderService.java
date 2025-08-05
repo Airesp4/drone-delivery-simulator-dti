@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 public class OrderService {
     
     private final InMemoryOrderRepository orderRepository;
+    private final DeliveryService deliveryService;
     private final AtomicLong idGenerator = new AtomicLong(1);
 
     public Order createOrder(OrderRequestDTO dto) {
@@ -27,7 +28,8 @@ public class OrderService {
             dto.priority(),
             false
         );
-
+        this.deliveryService.tryAllocateOrder(order);
+        
         return this.orderRepository.save(order);
     }
 

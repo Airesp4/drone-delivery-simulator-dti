@@ -23,4 +23,13 @@ public class InMemoryOrderRepository implements OrderRepository{
     public List<Order> findAll() {
         return new ArrayList<>(orders);
     }
+
+    @Override
+    public Order update(Order updatedOrder) {
+        synchronized (orders) {
+            orders.removeIf(o -> o.getId().equals(updatedOrder.getId()));
+            orders.add(updatedOrder);
+        }
+        return updatedOrder;
+    }
 }

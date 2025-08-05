@@ -17,7 +17,7 @@ public class DroneService {
     private final InMemoryDroneRepository droneRepository;
 
     public List<DroneStatusResponseDTO> getAllDrones() {
-        return droneRepository.findAll().stream()
+        return this.droneRepository.findAll().stream()
             .map(drone -> new DroneStatusResponseDTO(
                 drone.getId(),
                 drone.getMaxPayloadKg(),
