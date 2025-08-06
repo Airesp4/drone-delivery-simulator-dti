@@ -3,7 +3,6 @@ package com.dti.drone_delivery_simulator.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.PriorityQueue;
 
 import org.springframework.stereotype.Service;
 
@@ -21,35 +20,32 @@ public class AllocationService {
     private final InMemoryDroneRepository droneRepository;
     private final RouteService routeService;
 
-    public Optional<List<Order>> tryAllocate(Order order, PriorityQueue<Order> pendingOrders) {
+    public Optional<List<Order>> tryAllocate(Order order, List<Order> pendingOrdersSnapshot) {
         return this.droneRepository.findByState(DroneState.IDLE).stream()
                 .filter(drone -> this.isCompatible(drone, order))
                 .findFirst()
                 .map(drone -> {
                     List<Order> ordersToDeliver = new ArrayList<>();
                     ordersToDeliver.add(order);
-                    combineWithPendingOrders(drone, ordersToDeliver, pendingOrders);
+                    combineWithPendingOrders(drone, ordersToDeliver, pendingOrdersSnapshot);
                     return ordersToDeliver;
                 });
     }
 
-    private void combineWithPendingOrders(Drone drone, List<Order> currentOrders, PriorityQueue<Order> pendingOrders) {
-        List<Order> remainingPendingOrders = new ArrayList<>(pendingOrders);
-        List<Order> ordersToRemove = new ArrayList<>();
+    private void combineWithPendingOrders(Drone drone, List<Order> currentOrders, List<Order> pendingOrdersSnapshot) {
+        for (Order pendingOrder : pendingOrdersSnapshot) {
+            if (currentOrders.contains(pendingOrder)) continue;
 
-        for (Order pendingOrder : remainingPendingOrders) {
             List<Order> potentialOrders = new ArrayList<>(currentOrders);
             potentialOrders.add(pendingOrder);
 
-            double currentPayload = potentialOrders.stream().mapToDouble(Order::getPayloadKg).sum();
-            double currentDistance = routeService.calculateRouteDistance(potentialOrders, drone.getPositionX(), drone.getPositionY());
+            double totalPayload = potentialOrders.stream().mapToDouble(Order::getPayloadKg).sum();
+            double routeDistance = routeService.calculateRouteDistance(potentialOrders, drone.getPositionX(), drone.getPositionY());
 
-            if (currentPayload <= drone.getMaxPayloadKg() && currentDistance <= drone.getMaxRangeKm()) {
+            if (totalPayload <= drone.getMaxPayloadKg() && routeDistance <= drone.getMaxRangeKm()) {
                 currentOrders.add(pendingOrder);
-                ordersToRemove.add(pendingOrder);
             }
         }
-        pendingOrders.removeAll(ordersToRemove);
     }
 
     private boolean isCompatible(Drone drone, Order order) {
@@ -62,9 +58,6 @@ public class AllocationService {
 
         double routeDistance = routeService.calculateRouteDistance(combinedOrders, drone.getPositionX(), drone.getPositionY());
 
-        boolean payloadOk = totalPayload <= drone.getMaxPayloadKg();
-        boolean rangeOk = routeDistance <= drone.getMaxRangeKm();
-
-        return payloadOk && rangeOk;
+        return totalPayload <= drone.getMaxPayloadKg() && routeDistance <= drone.getMaxRangeKm();
     }
 }

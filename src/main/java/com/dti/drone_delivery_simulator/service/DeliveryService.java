@@ -1,5 +1,6 @@
 package com.dti.drone_delivery_simulator.service;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
@@ -7,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.dti.drone_delivery_simulator.enums.DroneState;
@@ -32,19 +34,29 @@ public class DeliveryService {
     private final AllocationService allocationService;
 
     public void processOrder(Order order) {
-        allocationService.tryAllocate(order, pendingOrders).ifPresentOrElse(
-            ordersToDeliver -> {
-                log.info("✔️ Pedido {} alocado diretamente para um drone disponível, junto com {} pedidos adicionais.", order.getId(), ordersToDeliver.size() - 1);
-                
-                Drone drone = droneRepository.findByState(DroneState.IDLE).get(0);
-                ordersToDeliver.forEach(o -> this.droneRepository.addOrderToDrone(drone.getId(), o));
-                this.simulateDelivery(drone, ordersToDeliver);
-            },
-            () -> {
-                this.pendingOrders.add(order);
-                log.warn("⚠️ Nenhum drone disponível para o pedido {}. Pedido movido para fila de pendentes.", order.getId());
-            }
-        );
+        synchronized (pendingOrders) {
+            List<Order> pendingOrdersSnapshot = new ArrayList<>(pendingOrders);
+
+            allocationService.tryAllocate(order, pendingOrdersSnapshot).ifPresentOrElse(
+                ordersToDeliver -> {
+                    log.info("✔️ Pedido {} alocado para drone com {} pedidos adicionais.", order.getId(), ordersToDeliver.size() - 1);
+
+                    ordersToDeliver.stream()
+                        .filter(o -> !o.equals(order))
+                        .forEach(pendingOrders::remove);
+
+                    Drone drone = droneRepository.findByState(DroneState.IDLE).get(0);
+                    ordersToDeliver.forEach(o -> this.droneRepository.addOrderToDrone(drone.getId(), o));
+                    this.simulateDelivery(drone, ordersToDeliver);
+                },
+                () -> {
+                    if (!pendingOrders.contains(order)) {
+                        pendingOrders.add(order);
+                        log.warn("⚠️ Nenhum drone disponível para o pedido {}. Pedido adicionado à fila de pendentes.", order.getId());
+                    }
+                }
+            );
+        }
     }
 
     private void simulateDelivery(Drone drone, List<Order> orders) {
@@ -52,14 +64,12 @@ public class DeliveryService {
             try {
                 long droneId = drone.getId();
 
-                log.info("🛫 Drone {} iniciando entrega de múltiplos pedidos ({} pedidos)...", droneId, orders.size());
-                
                 this.droneRepository.advanceDroneState(droneId);
                 log.info("📦 Drone {} está carregando os pedidos...", droneId);
                 this.sleepSeconds(1);
 
                 List<Order> optimizedOrders = this.routeService.getOptimizedOrderList(orders);
-                
+
                 int currentX = drone.getPositionX();
                 int currentY = drone.getPositionY();
 
@@ -67,21 +77,23 @@ public class DeliveryService {
                     double travelDistance = this.routeService.calculateDistance(
                         currentX, currentY, o.getClientPositionX(), o.getClientPositionY()
                     );
-                    
+
                     this.droneRepository.advanceDroneState(droneId);
                     log.info("✈️ Drone {} em voo para entregar pedido {}...", droneId, o.getId());
                     this.sleepSeconds((long) travelDistance);
 
                     drone.setPositionX(o.getClientPositionX());
                     drone.setPositionY(o.getClientPositionY());
-                    
+
                     this.droneRepository.advanceDroneState(droneId);
                     log.info("📍 Drone {} entregando pedido {}...", droneId, o.getId());
                     this.sleepSeconds(1);
-                    
+
                     o.setDelivered(true);
                     this.orderRepository.update(o);
                     log.info("📬 Pedido {} marcado como entregue.", o.getId());
+
+                    this.droneRepository.removeOrderFromDrone(droneId, o.getId());
 
                     currentX = o.getClientPositionX();
                     currentY = o.getClientPositionY();
@@ -92,13 +104,13 @@ public class DeliveryService {
                 this.droneRepository.advanceDroneState(droneId);
                 log.info("↩️ Drone {} retornando à base...", droneId);
                 this.sleepSeconds((long) returnDistance);
-                
-                orders.forEach(o -> this.droneRepository.removeOrderFromDrone(droneId, o.getId()));
+
                 this.droneRepository.advanceDroneState(droneId);
                 drone.setPositionX(0);
                 drone.setPositionY(0);
 
                 log.info("✅ Drone {} voltou à base e está disponível (IDLE). Entrega de {} pedidos finalizada.", droneId, orders.size());
+
                 this.checkPendingQueue();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -106,18 +118,23 @@ public class DeliveryService {
             }
         }).start();
     }
-    
+
+    @Scheduled(fixedRate = 10000)
     private void checkPendingQueue() {
+        log.info("🔄 Checando pedidos pendentes...");
         synchronized (pendingOrders) {
             if (pendingOrders.isEmpty()) {
                 return;
             }
-            
+
             Order nextOrder = pendingOrders.peek();
             if (nextOrder != null) {
-                allocationService.tryAllocate(nextOrder, pendingOrders).ifPresent(
+                List<Order> pendingOrdersSnapshot = new ArrayList<>(pendingOrders);
+
+                allocationService.tryAllocate(nextOrder, pendingOrdersSnapshot).ifPresent(
                     ordersToDeliver -> {
-                        pendingOrders.remove(nextOrder);
+                        ordersToDeliver.forEach(pendingOrders::remove);
+
                         Drone drone = droneRepository.findByState(DroneState.IDLE).get(0);
                         ordersToDeliver.forEach(o -> this.droneRepository.addOrderToDrone(drone.getId(), o));
                         this.simulateDelivery(drone, ordersToDeliver);

@@ -24,8 +24,6 @@ public class InMemoryDroneRepository implements DroneRepository{
     @PostConstruct
     public void init() {
         drones.put(1L, new Drone(1L, 10.0, 20.0, DroneState.IDLE, 0, 0, new ArrayList<>()));
-        drones.put(2L, new Drone(2L, 15.0, 25.0, DroneState.IDLE, 0, 0, new ArrayList<>()));
-        drones.put(3L, new Drone(3L, 8.0, 18.0, DroneState.IDLE, 0, 0, new ArrayList<>()));
     }
 
     @Override
