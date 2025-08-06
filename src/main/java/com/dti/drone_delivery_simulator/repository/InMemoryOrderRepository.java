@@ -3,9 +3,11 @@ package com.dti.drone_delivery_simulator.repository;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 
+import com.dti.drone_delivery_simulator.enums.OrderState;
 import com.dti.drone_delivery_simulator.model.Order;
 
 @Repository
@@ -31,5 +33,12 @@ public class InMemoryOrderRepository implements OrderRepository{
             orders.add(updatedOrder);
         }
         return updatedOrder;
+    }
+
+    @Override
+    public List<Order> findPendingOrders() {
+        return orders.stream()
+                .filter(order -> order.getState() == OrderState.PENDING)
+                .collect(Collectors.toList());
     }
 }

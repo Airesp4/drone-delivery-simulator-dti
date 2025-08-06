@@ -1,6 +1,7 @@
 package com.dti.drone_delivery_simulator.model;
 
 import com.dti.drone_delivery_simulator.enums.OrderPriority;
+import com.dti.drone_delivery_simulator.enums.OrderState;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,5 +19,5 @@ public class Order {
     private int clientPositionY;
     private double payloadKg;
     private OrderPriority priority;
-    private boolean delivered = false;
+    private OrderState state = OrderState.PENDING;
 }

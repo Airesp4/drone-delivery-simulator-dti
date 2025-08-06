@@ -1,5 +1,6 @@
 package com.dti.drone_delivery_simulator.service;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -40,10 +41,33 @@ public class RouteService {
         return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     }
 
-    public List<Order> getOptimizedOrderList(List<Order> orders) {
-        return orders.stream()
-            .sorted(Comparator.comparingDouble(order ->
-                calculateDistance(0, 0, order.getClientPositionX(), order.getClientPositionY())))
-            .toList();
+    public List<Order> getOptimizedRoute(List<Order> orders) {
+        int currentX = 0;
+        int currentY = 0;
+
+        List<Order> sortedOrders = new ArrayList<>();
+        List<Order> remainingOrders = new ArrayList<>(orders);
+
+        while (!remainingOrders.isEmpty()) {
+            Order nextOrder = null;
+            double minDistance = Double.MAX_VALUE;
+
+            for (Order order : remainingOrders) {
+                double distance = calculateDistance(currentX, currentY, order.getClientPositionX(), order.getClientPositionY());
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nextOrder = order;
+                }
+            }
+
+            if (nextOrder != null) {
+                sortedOrders.add(nextOrder);
+                currentX = nextOrder.getClientPositionX();
+                currentY = nextOrder.getClientPositionY();
+                remainingOrders.remove(nextOrder);
+            }
+        }
+
+        return sortedOrders;
     }
 }

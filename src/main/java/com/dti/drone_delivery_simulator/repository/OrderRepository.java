@@ -8,4 +8,5 @@ public interface OrderRepository {
     Order save(Order order);
     List<Order> findAll();
     Order update(Order order);
+    List<Order> findPendingOrders();
 }
