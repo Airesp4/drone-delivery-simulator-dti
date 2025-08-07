@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class Route {
     
     private Long id;
-    private Long droneId;
+    private Drone drone;
     private List<Order> orders;
     private double totalDistanceKm;
     private RouteStatus status;

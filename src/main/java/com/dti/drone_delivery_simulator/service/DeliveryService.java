@@ -10,8 +10,10 @@ import org.springframework.stereotype.Service;
 
 import com.dti.drone_delivery_simulator.enums.DroneState;
 import com.dti.drone_delivery_simulator.enums.OrderState;
+import com.dti.drone_delivery_simulator.enums.RouteStatus;
 import com.dti.drone_delivery_simulator.model.Drone;
 import com.dti.drone_delivery_simulator.model.Order;
+import com.dti.drone_delivery_simulator.model.Route;
 import com.dti.drone_delivery_simulator.repository.InMemoryDroneRepository;
 import com.dti.drone_delivery_simulator.repository.InMemoryOrderRepository;
 
@@ -58,6 +60,9 @@ public class DeliveryService {
 
                 List<Order> optimizedOrders = routeService.getOptimizedRoute(orders);
 
+                Route route = routeService.createRoute(drone, optimizedOrders);
+                routeService.updateStatusRoute(route.getId(), RouteStatus.PLANNED);
+
                 int currentX = drone.getPositionX();
                 int currentY = drone.getPositionY();
 
@@ -67,11 +72,12 @@ public class DeliveryService {
                     double travelDistance = routeService.calculateDistance(
                         currentX, currentY, order.getClientPositionX(), order.getClientPositionY());
 
-                    log.info("Drone {} se deslocando de ({}, {}) para ({}, {}) - distância {:.2f}.",
-                        droneId, currentX, currentY, order.getClientPositionX(), order.getClientPositionY(), travelDistance);
+                    log.info("Drone {} se deslocando de ({}, {}) para ({}, {})",
+                        droneId, currentX, currentY, order.getClientPositionX(), order.getClientPositionY());
 
                     order.setState(OrderState.ON_ROUTE);
                     this.orderRepository.update(order);
+                    routeService.updateStatusRoute(route.getId(), RouteStatus.IN_PROGRESS);
 
                     drone.setStatus(DroneState.IN_FLIGHT);
                     log.info("Drone {} em voo para entregar pedido {}...", droneId, order.getId());
@@ -95,6 +101,8 @@ public class DeliveryService {
                 }
                 
                 droneRepository.advanceDroneState(droneId);
+                
+                routeService.updateStatusRoute(route.getId(), RouteStatus.COMPLETED);
 
                 double returnDistance = routeService.calculateDistance(currentX, currentY, 0, 0);
                 log.info("Drone {} retornando à base.", droneId);
@@ -104,9 +112,6 @@ public class DeliveryService {
                 drone.setPositionX(0);
                 drone.setPositionY(0);
                 log.info("Drone {} voltou à base e está disponível (IDLE). Entrega concluída.", droneId);
-
-                this.processOrders();
-
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.error("Simulação interrompida para o drone {}: {}", droneId, e.getMessage());
