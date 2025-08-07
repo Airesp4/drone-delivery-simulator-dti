@@ -10,6 +10,7 @@ import com.dti.drone_delivery_simulator.dto.DroneSummaryDTO;
 import com.dti.drone_delivery_simulator.dto.OrderSummaryDTO;
 import com.dti.drone_delivery_simulator.dto.RouteResponseDTO;
 import com.dti.drone_delivery_simulator.enums.RouteStatus;
+import com.dti.drone_delivery_simulator.exception.OrderNotFoundException;
 import com.dti.drone_delivery_simulator.model.Drone;
 import com.dti.drone_delivery_simulator.model.Order;
 import com.dti.drone_delivery_simulator.model.Route;
@@ -25,7 +26,7 @@ public class RouteService {
 
     public Route createRoute(Drone drone, List<Order> orders) {
         if (orders.isEmpty()) {
-            throw new IllegalArgumentException("Drone must have at least one order to create a route.");
+            throw new OrderNotFoundException("Drone deve possuir pelo menos um pedido alocado para criar rota.");
         }
 
         Route route = new Route();

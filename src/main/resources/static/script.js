@@ -168,14 +168,15 @@ function updateAllOrdersList() {
         'DELIVERED': 'fas fa-check-circle',
         'PENDING': 'fas fa-clock',
         'IN_TRANSIT': 'fas fa-shipping-fast',
-        'CANCELLED': 'fas fa-times-circle'
+        'CANCELLED': 'fas fa-times-circle',
+        'RECUSED': 'fas fa-ban'
     };
 
     const statusLabels = {
         'DELIVERED': 'Entregue',
         'PENDING': 'Pendente',
-        'IN_TRANSIT': 'Em Trânsito',
-        'CANCELLED': 'Cancelado'
+        'ON_ROUTE': 'Em Trânsito',
+        'RECUSED': 'Recusado'
     };
 
     const priorityLabels = {
@@ -330,9 +331,16 @@ async function handleSingleOrder(e) {
         });
 
         if (response.ok) {
+            const order = await response.json();
+
             resetForm('single');
             await fetchStats();
-            showToast('Pedido Enviado', 'Pedido processado com sucesso.');
+
+            if (order.state === 'RECUSED') {
+                showToast('Pedido Recusado', 'Este pedido não pode ser entregue por nenhum drone.', 'error');
+            } else {
+                showToast('Pedido Enviado', 'Pedido processado com sucesso.');
+            }
         } else {
             throw new Error(`Erro ${response.status}`);
         }
@@ -375,6 +383,7 @@ async function sendAllOrders() {
     sendBtn.disabled = true;
 
     let successfulCount = 0;
+    let refusedCount = 0;
     const ordersToSend = [...pendingOrders];
 
     for (const order of ordersToSend) {
@@ -392,9 +401,15 @@ async function sendAllOrders() {
                 body: JSON.stringify(apiPayload),
             });
 
+            const responseData = await response.json();
+
             if (response.ok) {
                 successfulCount++;
                 pendingOrders = pendingOrders.filter(o => o.id !== order.id);
+            } else if (responseData.state === 'RECUSED') {
+                refusedCount++;
+                pendingOrders = pendingOrders.filter(o => o.id !== order.id);
+                showToast('Pedido Recusado', `Pedido com peso ${order.weight}kg foi recusado.`, 'warning');
             }
         } catch (error) {
             console.error('Erro ao enviar pedido:', error);
@@ -404,7 +419,9 @@ async function sendAllOrders() {
     if (successfulCount > 0) {
         showToast('Lista Enviada', `${successfulCount} pedidos enviados com sucesso.`);
         await fetchStats();
-    } else {
+    }
+
+    if (refusedCount === 0 && successfulCount === 0) {
         showToast('Falha no Envio', 'Nenhum pedido foi enviado.', 'error');
     }
 

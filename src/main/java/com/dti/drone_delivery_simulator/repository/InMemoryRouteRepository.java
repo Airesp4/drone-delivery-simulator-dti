@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Repository;
 
 import com.dti.drone_delivery_simulator.enums.RouteStatus;
+import com.dti.drone_delivery_simulator.exception.RouteNotFoundException;
+import com.dti.drone_delivery_simulator.exception.RouteStatusException;
 import com.dti.drone_delivery_simulator.model.Route;
 
 @Repository
@@ -40,7 +42,7 @@ public class InMemoryRouteRepository implements RouteRepository{
     @Override
     public Route updateStatus(Long id, RouteStatus status) {
         if (status == null) {
-            throw new IllegalArgumentException("Status não pode ser nulo");
+            throw new RouteStatusException("Status não pode ser nulo");
         }
         
         Route route = routes.get(id);
@@ -48,6 +50,6 @@ public class InMemoryRouteRepository implements RouteRepository{
             route.setStatus(status);
             return route;
         }
-        throw new IllegalArgumentException("Rota não encontrada");
+        throw new RouteNotFoundException("Rota não encontrada");
     }
 }

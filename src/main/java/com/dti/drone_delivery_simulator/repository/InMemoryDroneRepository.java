@@ -9,6 +9,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Repository;
 
 import com.dti.drone_delivery_simulator.enums.DroneState;
+import com.dti.drone_delivery_simulator.exception.DroneNotAvailableException;
+import com.dti.drone_delivery_simulator.exception.DroneNotFoundException;
+import com.dti.drone_delivery_simulator.exception.OrderNotFoundException;
 import com.dti.drone_delivery_simulator.model.Drone;
 import com.dti.drone_delivery_simulator.model.Order;
 
@@ -48,10 +51,10 @@ public class InMemoryDroneRepository implements DroneRepository{
     @Override
     public Drone addOrderToDrone(Long droneId, Order order) {
         Drone drone = this.findById(droneId)
-                            .orElseThrow(() -> new IllegalArgumentException("Drone not found."));
+                            .orElseThrow(() -> new DroneNotFoundException("Drone not found."));
 
         if (drone.getStatus() != DroneState.IDLE) {
-            throw new IllegalStateException("Drone not available");
+            throw new DroneNotAvailableException("Drone not available");
         }
 
         drone.getOrders().add(order);
@@ -66,7 +69,7 @@ public class InMemoryDroneRepository implements DroneRepository{
         boolean removed = drone.getOrders().removeIf(order -> order.getId().equals(orderId));
 
         if (!removed) {
-            System.out.println("Warning: Order " + orderId + " not found on drone " + droneId);
+            throw new OrderNotFoundException("Warning: Order " + orderId + " not found on drone " + droneId);
         }
 
         return drone;
@@ -75,7 +78,7 @@ public class InMemoryDroneRepository implements DroneRepository{
     @Override
     public Drone advanceDroneState(Long droneId) {
         Drone drone = this.findById(droneId)
-                        .orElseThrow(() -> new IllegalArgumentException("Drone not found."));
+                        .orElseThrow(() -> new DroneNotFoundException("Drone not found."));
 
         drone.setStatus(drone.getStatus().next());
         return drone;
